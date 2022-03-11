@@ -4,8 +4,6 @@ import 'dart:io';
 import 'package:pana/pana.dart';
 import 'package:pana/src/license.dart';
 import 'package:path/path.dart';
-import 'package:barbecue/barbecue.dart';
-import 'package:tint/tint.dart';
 
 const possibleLicenseFileNames = [
   // LICENSE
@@ -38,13 +36,32 @@ const possibleLicenseFileNames = [
   'Unlicense.md',
 ];
 
+///The main entrypoint of the script
 void main(List<String> arguments) async {
   final showTransitiveDependencies =
       arguments.contains('--show-transitive-dependencies');
+  //show only copylefted dependencies
+  final onlyLeft = arguments.contains('--only-copyleft');
+  //exit 1 if you have a copylefted dependency
+  final failOnLeft = arguments.contains('--fail-on-copyleft');
+  var ignores = <String>[];
+  //try to parse the passed ignores
+  try {
+    if (arguments.contains('--ignores')) {
+      var unparsed = arguments[arguments.indexOf('--ignores') + 1];
+
+      ignores = unparsed.split(', ');
+    }
+  } catch (e) {
+    stderr.writeln(e);
+    //if we can't parse the ignores, we exit. The rest of the line may be malformed
+    exit(1);
+  }
+
   final pubspecFile = File('pubspec.yaml');
 
   if (!pubspecFile.existsSync()) {
-    stderr.writeln('pubspec.yaml file not found in current directory'.red());
+    stderr.writeln('pubspec.yaml file not found in current directory');
     exit(1);
   }
 
@@ -54,16 +71,15 @@ void main(List<String> arguments) async {
 
   if (!pubspecFile.existsSync()) {
     stderr.writeln(
-        '.dart_tool/package_config.json file not found in current directory. You may need to run "flutter pub get" or "pub get"'
-            .red());
+      '.dart_tool/package_config.json file not found in current directory. You may need to run "flutter pub get" or "pub get"',
+    );
     exit(1);
   }
 
-  print('Checking dependencies...'.blue());
-
   final packageConfig = json.decode(packageConfigFile.readAsStringSync());
 
-  final rows = <Row>[];
+  final rows = <String>[];
+  final copyleftRows = <String>[];
 
   for (final package in packageConfig['packages']) {
     final name = package['name'];
@@ -94,58 +110,47 @@ void main(List<String> arguments) async {
       }
     }
 
+    //create the lines
+    //we are not using table format because it is not supported in containers
     if (license != null) {
-      rows.add(Row(cells: [
-        Cell(name, style: CellStyle(alignment: TextAlignment.TopRight)),
-        Cell(formatLicenseName(license)),
-      ]));
+      if (copyleftOrProprietaryLicenses.contains(license.name) &&
+          !ignores.contains(name)) {
+        copyleftRows.add(
+          name + '|' + license.name,
+        );
+      }
+      rows.add(
+        name + '|' + license.name,
+      );
     } else {
-      rows.add(Row(cells: [
-        Cell(name, style: CellStyle(alignment: TextAlignment.TopRight)),
-        Cell('No license file'.grey()),
-      ]));
+      rows.add(
+        name + '| no license file',
+      );
     }
   }
-  print(
-    Table(
-      tableStyle: TableStyle(border: true),
-      header: TableSection(
-        rows: [
-          Row(
-            cells: [
-              Cell(
-                'Package Name  '.bold(),
-                style: CellStyle(alignment: TextAlignment.TopRight),
-              ),
-              Cell('License'.bold()),
-            ],
-            cellStyle: CellStyle(borderBottom: true),
-          ),
-        ],
-      ),
-      body: TableSection(
-        cellStyle: CellStyle(paddingRight: 2),
-        rows: rows,
-      ),
-    ).render(),
-  );
 
+  //print the licenses
+  if (onlyLeft && copyleftRows.isNotEmpty) {
+    for (var element in copyleftRows) {
+      stdout.writeln(element);
+    }
+  } else if (!onlyLeft && rows.isNotEmpty) {
+    for (var element in rows) {
+      stdout.writeln(element);
+    }
+  }
+  //now we fail if there was a copylefted dependency and the
+  //fail flag is on
+  if (failOnLeft && copyleftRows.isNotEmpty) {
+    stderr.writeln('You have copylefted dependencies');
+    stderr.writeln(
+      copyleftRows,
+    );
+    exit(1);
+  }
+//exit without error, we are done
   exit(0);
 }
-
-String formatLicenseName(LicenseFile license) {
-  if (license.name == 'unknown') {
-    return license.name.red();
-  } else if (copyleftOrProprietaryLicenses.contains(license.name)) {
-    return license.shortFormatted.red();
-  } else if (permissiveLicenses.contains(license.name)) {
-    return license.shortFormatted.green();
-  } else {
-    return license.shortFormatted.yellow();
-  }
-}
-
-// TODO LGPL, AGPL, MPL
 
 const permissiveLicenses = [
   'MIT',
@@ -177,6 +182,11 @@ const permissiveLicenses = [
 ];
 
 const copyleftOrProprietaryLicenses = [
+  'MPL',
+  'LGPL',
+  'AGPL',
+  'MPL-1.0',
+  'MPL-2.0',
   'GPL',
   'GPL-1.0',
   'GPL-2.0',
