@@ -1,14 +1,11 @@
-name: dart_license_checker
+name: license_checker_for_github_action
 description: A script to show licences of dependencies that can be used in github actions. Forked from dart_license_checker.
-version: 0.0.1
+version: 0.0.2
 homepage: https://github.com/Techspired/license_checker_for_github_action
 
 environment:
   sdk: ">=2.12.0 <3.0.0"
 
-platforms:
-  - any
-  
 dependencies:
   path: ^1.7.0
   pana: ^0.21.7

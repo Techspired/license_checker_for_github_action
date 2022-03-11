@@ -13,13 +13,20 @@ pubspec_parse | BSD
 
 ## Install  and run Locally
 
-`flutter pub global activate dart_license_checker`
+`flutter pub global activate license_checker_for_github_action`
 
 - Make sure you are in the main directory of your Flutter app or Dart program
 - Execute `dart_license_checker`
 
 If this doesn't work, you may need to set up your PATH (see https://dart.dev/tools/pub/cmd/pub-global#running-a-script-from-your-path)
 
+## Github action
+      - name: Check licenses install 
+        run: | 
+          dart pub global activate license_checker_for_github_action 
+      - name: Check licenses
+        run: | 
+          dart_license_checker
 
 ## Showing transitive dependencies
 
@@ -37,6 +44,6 @@ If you want to output an error if your licenses contain a copyleft license (such
 
 `dart_license_checker --fail-on-copyleft`
 
-In conjunction with `--only-copyleft` or `--fail-on-copyleft` flag, you might want to ignore some libraries. To do this use `--ignore`:
+In conjunction with `--only-copyleft` or `--fail-on-copyleft` flag, you might want to ignore some libraries. To do this use `--ignores`:
 
 `dart_license_checker --fail-on-copyleft --ignores 'nm, lib2'`
